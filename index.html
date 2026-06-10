@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>360坦克对决 — 联机版 M2</title>
+<style>
+body{margin:0;background:#151812;color:#E8E6DD;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:20px;min-height:100vh;box-sizing:border-box}
+.card{background:#1F241C;border:1px solid #353C2F;border-radius:14px;padding:28px;width:100%;max-width:380px;box-sizing:border-box}
+h1{font-size:20px;margin:0 0 18px;font-weight:600}
+input{width:100%;box-sizing:border-box;padding:10px 12px;margin:6px 0 14px;background:#13160F;border:1px solid #454C3E;border-radius:8px;color:#E8E6DD;font-size:15px;outline:none}
+input:focus{border-color:#3FA98B}
+button{background:#2B3026;color:#E8E6DD;border:1px solid #454C3E;border-radius:10px;font-size:15px;cursor:pointer;padding:10px 16px}
+button:hover{background:#3A4133}
+button:disabled{opacity:0.5;cursor:wait}
+.primary{background:#2A6E58;border-color:#3FA98B}
+.primary:hover{background:#338066}
+.row{display:flex;gap:10px;align-items:center}
+.row input{margin:0}
+.err{color:#E07B6E;font-size:13px;min-height:18px;margin-top:10px}
+.divider{text-align:center;color:#6B7163;font-size:12px;margin:16px 0}
+#game{display:none;width:100%;max-width:660px}
+.hud{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:0 0 10px;font-size:13px;color:#9BA194}
+.hud b{font-weight:600;color:#E8E6DD}
+canvas{width:100%;display:block;border-radius:12px;touch-action:none;cursor:crosshair;outline:none}
+.below{display:flex;justify-content:space-between;align-items:flex-start;margin-top:12px;gap:16px;flex-wrap:wrap}
+.pad{display:grid;grid-template-columns:repeat(3,50px);grid-template-rows:repeat(2,50px);gap:6px}
+.pad button{font-size:16px}
+#roster{font-size:13px;line-height:1.9;color:#C9CEC2;text-align:right}
+.fire{width:64px;height:64px;border-radius:50%;background:#7A3A33;border-color:#B0584E;font-size:14px;align-self:center}
+.fire:hover{background:#8E463E}
+.controls{display:flex;gap:18px;align-items:center}
+.code{background:#13160F;border:1px solid #454C3E;border-radius:6px;padding:2px 10px;font-family:monospace;font-size:15px;letter-spacing:3px;color:#7FD4B5}
+</style>
+</head>
+<body>
+
+<!-- ============ 大厅 ============ -->
+<div class="card" id="lobby">
+  <h1>360坦克对决 · 联机版</h1>
+  <label>你的昵称</label>
+  <input id="nameInput" maxlength="10" placeholder="比如:Leo">
+  <button class="primary" id="btnCreate" style="width:100%">创建房间</button>
+  <div class="divider">— 或者加入朋友的房间 —</div>
+  <div class="row">
+    <input id="codeInput" maxlength="4" placeholder="4 位房间码" style="text-transform:uppercase;flex:1">
+    <button id="btnJoin">加入</button>
+  </div>
+  <div class="err" id="lobbyError"></div>
+</div>
+
+<!-- ============ 游戏 ============ -->
+<div id="game">
+  <div class="hud">
+    <span>房间 <span class="code" id="roomCode">----</span></span>
+    <span>地图 <b id="mapName">—</b></span>
+    <span>在线 <b id="playerCount">1</b> 人</span>
+    <span style="color:#6B7163">先到 10 杀获胜 · 捡 ? 箱拿道具</span>
+    <button id="btnSound" title="音效开关" style="margin-left:auto;padding:4px 10px;font-size:14px">&#128266;</button>
+  </div>
+  <canvas id="cv" width="624" height="528" tabindex="0"></canvas>
+  <div class="below">
+    <div class="controls">
+      <div class="pad">
+        <span></span><button id="btnUp">&#8593;</button><span></span>
+        <button id="btnLeft">&#8592;</button><button id="btnDown">&#8595;</button><button id="btnRight">&#8594;</button>
+      </div>
+      <button id="btnFire" class="fire">开炮</button>
+    </div>
+    <div id="roster"></div>
+  </div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
