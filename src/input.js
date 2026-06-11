@@ -17,7 +17,15 @@ const KM = {
 };
 
 // 虚拟摇杆状态(手机用;x/y 为 -1..1 的模拟量)
-const joy = { active: false, id: null, cx: 0, cy: 0, x: 0, y: 0 };
+const joy  = { active: false, id: null, cx: 0, cy: 0, x: 0, y: 0 };   // 左:移动
+const joyA = { active: false, id: null, cx: 0, cy: 0, x: 0, y: 0 };   // 右:瞄准+连射
+
+// 射击摇杆方向(没在推时返回 null)
+export function aimVector() {
+  if (!joyA.active) return null;
+  const m = Math.hypot(joyA.x, joyA.y);
+  return m > 0.25 ? [joyA.x, joyA.y] : null;   // 死区大一点,防误触乱射
+}
 
 // 返回移动向量 [x, y](模长 0..1):摇杆优先,否则键盘(归一化)
 export function moveVector() {
@@ -85,53 +93,54 @@ export function initInput(cv) {
   };
   hold('btnUp', 'u'); hold('btnDown', 'd'); hold('btnLeft', 'l'); hold('btnRight', 'r');
 
-  // 触屏开炮按钮(点按一次开一炮,冷却由 main 控制)
-  for (const id of ['btnFire', 'btnFireM']) {
-    const fb = document.getElementById(id);
-    if (fb) fb.addEventListener('pointerdown', (e) => {
-      e.preventDefault(); focused = true;
-      if (fireFn) fireFn();
-    });
-  }
+  // 触屏开炮按钮(兼容旧版按钮 id;现在主力是右摇杆)
+  const fb = document.getElementById('btnFire');
+  if (fb) fb.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); focused = true;
+    if (fireFn) fireFn();
+  });
 
-  // ---------- 虚拟摇杆 ----------
-  // setPointerCapture 把这根手指绑死在摇杆上,
-  // 另一根手指可以同时点画布/开炮键(双指操作的关键)
-  const st = document.getElementById('stick');
-  const knob = document.getElementById('knob');
-  if (st && knob) {
+  // ---------- 虚拟摇杆(通用) ----------
+  // setPointerCapture 把那根手指绑死在各自摇杆上,
+  // 左手移动 + 右手射击同时操作互不干扰
+  const makeStick = (stickId, knobId, state) => {
+    const st = document.getElementById(stickId);
+    const knob = document.getElementById(knobId);
+    if (!st || !knob) return;
     const R = 42;   // 摇杆最大行程 px
     const setKnob = () =>
-      knob.style.transform = `translate(calc(-50% + ${joy.x * R}px), calc(-50% + ${joy.y * R}px))`;
+      knob.style.transform = `translate(calc(-50% + ${state.x * R}px), calc(-50% + ${state.y * R}px))`;
     const track = (e) => {
-      if (!joy.active || e.pointerId !== joy.id) return;
+      if (!state.active || e.pointerId !== state.id) return;
       // 屏幕方向 → 游戏方向(旋转模式下手指向下 = 游戏向右)
-      const sx = (e.clientX - joy.cx) / R, sy = (e.clientY - joy.cy) / R;
+      const sx = (e.clientX - state.cx) / R, sy = (e.clientY - state.cy) / R;
       const dx = rotated ? sy : sx;
       const dy = rotated ? -sx : sy;
       const m = Math.hypot(dx, dy);
       const k = Math.min(1, m) / (m || 1);
-      joy.x = dx * k; joy.y = dy * k;
+      state.x = dx * k; state.y = dy * k;
       setKnob();
     };
     st.addEventListener('pointerdown', (e) => {
       e.preventDefault(); focused = true;
-      joy.active = true; joy.id = e.pointerId;
+      state.active = true; state.id = e.pointerId;
       const r = st.getBoundingClientRect();
-      joy.cx = r.left + r.width / 2; joy.cy = r.top + r.height / 2;
+      state.cx = r.left + r.width / 2; state.cy = r.top + r.height / 2;
       st.setPointerCapture(e.pointerId);
       track(e);
     });
     st.addEventListener('pointermove', track);
     const end = (e) => {
-      if (e.pointerId !== joy.id) return;
-      joy.active = false; joy.x = joy.y = 0;
+      if (e.pointerId !== state.id) return;
+      state.active = false; state.x = state.y = 0;
       knob.style.transform = 'translate(-50%,-50%)';
     };
     st.addEventListener('pointerup', end);
     st.addEventListener('pointercancel', end);
     st.addEventListener('contextmenu', (e) => e.preventDefault());
-  }
+  };
+  makeStick('stick', 'knob', joy);            // 左:移动
+  makeStick('stickFire', 'knobFire', joyA);   // 右:瞄准+连射
 
   // 长按画布不要弹出系统菜单/选中
   cv.addEventListener('contextmenu', (e) => e.preventDefault());

@@ -16,7 +16,7 @@ import * as cfg from './config.js';
 import * as net from './net.js';
 import * as sfx from './sfx.js';
 import { RemoteTank } from './interp.js';
-import { initInput, moveVector, mouse, focused, onFire, setRotated } from './input.js';
+import { initInput, moveVector, mouse, focused, onFire, setRotated, aimVector } from './input.js';
 import {
   drawField, drawTank, drawBullet, drawParticles,
   drawBox, drawFloats, drawEffectHud, drawRoundBanner,
@@ -26,7 +26,7 @@ import {
 const cv = document.getElementById('cv');
 const cx = cv.getContext('2d');
 
-console.log('%c[坦克对决] M4.2 — 强制横屏', 'color:#7FD4B5;font-weight:bold');
+console.log('%c[坦克对决] M4.3 — 宽屏地图与双摇杆', 'color:#7FD4B5;font-weight:bold');
 
 // ---------- 回合状态 ----------
 let ROOM = '';            // 房间码(算每一局的地图用)
@@ -441,7 +441,14 @@ function loop(ts) {
       while (da < -Math.PI) da += Math.PI * 2;
       me.bodyA += da * Math.min(1, dt * 9);
     }
-    me.aimA = Math.atan2(mouse.y - me.y, mouse.x - me.x);
+    // 瞄准:射击摇杆推着时接管炮塔方向并自动连射(fire 自带冷却);否则跟鼠标/点击
+    const av = aimVector();
+    if (av) {
+      me.aimA = Math.atan2(av[1], av[0]);
+      fire();
+    } else {
+      me.aimA = Math.atan2(mouse.y - me.y, mouse.x - me.x);
+    }
 
     // 拾取检测:碰到箱子 → 本地立即生效 + 广播认领
     for (const [bid, bx] of boxes) {
@@ -567,7 +574,7 @@ async function enterRoom(code, name) {
     const sp = MAP.spawns[Math.floor(Math.random() * MAP.spawns.length)];
     [me.x, me.y] = safePoint(sp[0], sp[1]);
     $('lobby').style.display = 'none';
-    $('game').style.display = 'block';
+    $('game').style.display = IS_TOUCH ? 'flex' : 'block';   // 手机模式必须是 flex,否则画面不居中
     initInput(cv);
     requestAnimationFrame(loop);
     // HUD 文本放最后,且元素缺失时不让游戏崩掉(防止 HTML/JS 版本混搭黑屏)

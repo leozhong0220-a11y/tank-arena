@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>360坦克对决 — 联机版 M4</title>
 <style>
 *{-webkit-tap-highlight-color:transparent}
@@ -22,7 +22,7 @@ button:disabled{opacity:0.5;cursor:wait}
 .row input{margin:0}
 .err{color:#E07B6E;font-size:13px;min-height:18px;margin-top:10px}
 .divider{text-align:center;color:#6B7163;font-size:12px;margin:16px 0}
-#game{display:none;width:100%;max-width:660px}
+#game{display:none;width:100%;max-width:1080px}
 .hud{display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin:0 0 10px;font-size:13px;color:#9BA194}
 .hud b{font-weight:600;color:#E8E6DD}
 canvas{width:100%;display:block;border-radius:12px;touch-action:none;cursor:crosshair;outline:none}
@@ -36,7 +36,7 @@ canvas{width:100%;display:block;border-radius:12px;touch-action:none;cursor:cros
 .code{background:#13160F;border:1px solid #454C3E;border-radius:6px;padding:2px 10px;font-family:monospace;font-size:15px;letter-spacing:3px;color:#7FD4B5}
 
 /* ---------- 手机全屏模式(.mfs):画布占满屏幕,控件悬浮在游戏画面之内 ---------- */
-#game.mfs{position:fixed;inset:0;max-width:none;margin:0;padding:0;background:#0F120D;display:flex;align-items:center;justify-content:center;z-index:10}
+#game.mfs{position:fixed;inset:0;max-width:none;margin:0;padding:0;background:#0F120D;display:flex !important;align-items:center;justify-content:center;z-index:10}
 #game.mfs .hud{position:absolute;top:6px;left:12px;right:12px;z-index:12;margin:0;font-size:12px;gap:10px;pointer-events:none}
 #game.mfs .hud button{pointer-events:auto}
 #game.mfs canvas{border-radius:0;width:auto}
@@ -44,8 +44,9 @@ canvas{width:100%;display:block;border-radius:12px;touch-action:none;cursor:cros
 #stick{display:none;position:absolute;left:24px;bottom:24px;width:124px;height:124px;border-radius:50%;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.18);z-index:12;touch-action:none}
 #knob{position:absolute;left:50%;top:50%;width:54px;height:54px;border-radius:50%;background:rgba(232,230,221,0.22);border:2px solid rgba(232,230,221,0.45);transform:translate(-50%,-50%);touch-action:none;pointer-events:none}
 #game.mfs #stick{display:block}
-#btnFireM{display:none;position:absolute;right:28px;bottom:36px;width:88px;height:88px;border-radius:50%;background:rgba(122,58,51,0.75);border:2px solid #B0584E;font-size:17px;z-index:12;touch-action:none}
-#game.mfs #btnFireM{display:block}
+#stickFire{display:none;position:absolute;right:24px;bottom:24px;width:124px;height:124px;border-radius:50%;background:rgba(176,88,78,0.10);border:2px solid rgba(224,123,110,0.4);z-index:12;touch-action:none}
+#knobFire{position:absolute;left:50%;top:50%;width:54px;height:54px;border-radius:50%;background:rgba(217,91,82,0.4);border:2px solid rgba(224,123,110,0.7);transform:translate(-50%,-50%);touch-action:none;pointer-events:none;color:#F2DDD9;font-size:13px;display:flex;align-items:center;justify-content:center}
+#game.mfs #stickFire{display:block}
 /* 竖屏强制横屏:把整个游戏容器旋转 90°,尺寸宽高互换 */
 #game.mfs.rot{inset:auto;left:50%;top:50%;width:100vh;height:100vw;transform:translate(-50%,-50%) rotate(90deg)}
 body.touchmode.ingame{padding:0}
@@ -76,7 +77,7 @@ body.touchmode.ingame{padding:0}
     <span style="color:#6B7163">先到 10 杀获胜 · 捡 ? 箱拿道具</span>
     <button id="btnSound" title="音效开关" style="margin-left:auto;padding:4px 10px;font-size:14px">&#128266;</button>
   </div>
-  <canvas id="cv" width="624" height="528" tabindex="0"></canvas>
+  <canvas id="cv" width="1056" height="480" tabindex="0"></canvas>
   <div class="below">
     <div class="controls">
       <div class="pad">
@@ -89,7 +90,7 @@ body.touchmode.ingame{padding:0}
   </div>
   <!-- 手机模式悬浮控件(桌面隐藏) -->
   <div id="stick"><div id="knob"></div></div>
-  <button id="btnFireM">开炮</button>
+  <div id="stickFire"><div id="knobFire">开炮</div></div>
 </div>
 
 <script type="module" src="src/main.js"></script>
