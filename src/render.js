@@ -225,30 +225,33 @@ export function drawParticles(cx, parts) {
   cx.globalAlpha = 1;
 }
 
-// 回合结算横幅
-export function drawRoundBanner(cx, winnerName, winnerColor, msLeft, nextMapName) {
+// 回合结算横幅(整局结束带下一张地图;小回合 nextMapName 传 null)
+export function drawRoundBanner(cx, title, color, msLeft, nextMapName) {
+  const hh = nextMapName ? 64 : 50;
   cx.fillStyle = 'rgba(15,18,13,0.82)';
-  cx.beginPath(); cx.roundRect(W / 2 - 190, H / 2 - 64, 380, 128, 16); cx.fill();
+  cx.beginPath(); cx.roundRect(W / 2 - 200, H / 2 - hh, 400, hh * 2, 16); cx.fill();
   cx.textAlign = 'center'; cx.textBaseline = 'middle';
-  cx.fillStyle = winnerColor;
+  cx.fillStyle = color;
   cx.font = '700 24px sans-serif';
-  cx.fillText(winnerName + ' 获胜!', W / 2, H / 2 - 28);
+  cx.fillText(title, W / 2, H / 2 - (nextMapName ? 28 : 16));
   cx.fillStyle = '#E8E6DD';
   cx.font = '400 15px sans-serif';
-  cx.fillText(`${Math.ceil(msLeft / 1000)} 秒后开新一局`, W / 2, H / 2 + 8);
-  cx.fillStyle = '#9BA194';
-  cx.font = '400 13px sans-serif';
-  cx.fillText('下一张地图:' + nextMapName, W / 2, H / 2 + 36);
+  cx.fillText(`${Math.ceil(msLeft / 1000)} 秒后继续`, W / 2, H / 2 + (nextMapName ? 8 : 18));
+  if (nextMapName) {
+    cx.fillStyle = '#9BA194';
+    cx.font = '400 13px sans-serif';
+    cx.fillText('下一张地图:' + nextMapName, W / 2, H / 2 + 36);
+  }
 }
 
-// 阵亡后的重生倒计时
-export function drawRespawnHint(cx, msLeft) {
+// 阵亡提示:等本回合结束统一重生
+export function drawRespawnHint(cx) {
   cx.fillStyle = 'rgba(15,18,13,0.78)';
-  cx.beginPath(); cx.roundRect(W / 2 - 130, H / 2 - 28, 260, 56, 12); cx.fill();
+  cx.beginPath(); cx.roundRect(W / 2 - 150, H / 2 - 28, 300, 56, 12); cx.fill();
   cx.fillStyle = '#FFFFFF';
   cx.font = '600 17px sans-serif';
   cx.textAlign = 'center'; cx.textBaseline = 'middle';
-  cx.fillText(`被击毁了!${Math.ceil(msLeft / 1000)} 秒后重生`, W / 2, H / 2);
+  cx.fillText('被击毁!观战中,等本回合结束…', W / 2, H / 2);
 }
 
 export function drawFocusHint(cx) {

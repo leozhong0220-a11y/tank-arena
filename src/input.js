@@ -4,10 +4,10 @@
 // ============================================================
 
 const keys = { u: 0, d: 0, l: 0, r: 0 };
-export const mouse = { x: 312, y: 264 };
+export const mouse = { x: 528, y: 240 };
 export let focused = false;   // 画布是否已获得键盘焦点
 
-// 开炮回调:由 main.js 注册,输入层只负责"什么时候想开炮"
+// 开炮回调:由 main.js 注册;点击画布开炮时会带上点击的画布坐标
 let fireFn = null;
 export function onFire(fn) { fireFn = fn; }
 
@@ -65,14 +65,14 @@ export function initInput(cv) {
     mouse.x = x; mouse.y = y;
   });
 
-  // 点击画布 = 开炮(顺便抓键盘焦点)
+  // 点击画布 = 朝点击处开炮(顺便抓键盘焦点)
   cv.addEventListener('pointerdown', (ev) => {
     ev.preventDefault();
     cv.focus();
     focused = true;
     const [x, y] = canvasPos(cv, ev);
     mouse.x = x; mouse.y = y;
-    if (fireFn) fireFn();
+    if (fireFn) fireFn([x, y]);
   });
 
   const onKD = (e) => {

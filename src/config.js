@@ -36,8 +36,9 @@ export const BOX_KINDS = [
 ];
 
 // ---------- M4 回合制 ----------
-export const KILL_TARGET = 10;     // 先到多少杀获胜
-export const ROUND_OVER_MS = 6000; // 胜利结算画面时长,之后自动开新一局
+export const KILL_TARGET = 10;     // 累计多少杀赢下整局(换地图、清比分)
+export const ROUND_OVER_MS = 6000; // 整局胜利结算画面时长
+export const SUBROUND_MS = 3000;   // 小回合结算时长(场上剩一人时)
 
 // ---------- 网络参数 ----------
 export const TICK_HZ = 12;         // 移动时的状态广播频率(次/秒)

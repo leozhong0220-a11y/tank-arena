@@ -26,14 +26,13 @@ import {
 const cv = document.getElementById('cv');
 const cx = cv.getContext('2d');
 
-console.log('%c[坦克对决] M4.4 — 开阔地图与视觉升级', 'color:#7FD4B5;font-weight:bold');
+console.log('%c[坦克对决] M4.5 — 大逃杀回合制', 'color:#7FD4B5;font-weight:bold');
 
 // ---------- 回合状态 ----------
 let ROOM = '';            // 房间码(算每一局的地图用)
 let roundNum = 0;         // 当前局数,地图 = mapIndexFor(房间码 + 局数)
 let roundOver = false;    // 结算画面中
 let roundEndsAt = 0, pendingRn = 0;
-let roundWinner = { name: '', color: '#E8E6DD' };
 
 // ---------- 本地坦克 ----------
 const me = {
@@ -223,7 +222,9 @@ net.on('presence', (state) => {
   refreshRoster();
 });
 
-// ---------- 回合制(胜负判定:房主权威) ----------
+// ---------- 回合制(判定均为房主权威) ----------
+// 小回合:场上剩一人 → 短结算 → 同图重开,击杀累计
+// 整局:有人累计到 KILL_TARGET 杀 → 长结算 → 换图、比分清零
 function nameColorOf(pid) {
   const i = rosterPlayers.findIndex((p) => p.id === pid);
   return {
@@ -232,7 +233,11 @@ function nameColorOf(pid) {
   };
 }
 
-// 房主在每次击杀数变动后检查:有人到目标 → 广播回合结束
+let banner = { title: '', color: '#E8E6DD', next: null };
+let keepKills = false;       // 小回合保留击杀,整局清零
+let subGraceUntil = 0;       // 回合开局宽限期,防止旧血量数据误触发
+
+// 房主在每次击杀数变动后检查:有人到目标 → 广播整局结束
 function checkWin(pid) {
   if (!isHost || roundOver) return;
   if ((kills.get(pid) || 0) >= cfg.KILL_TARGET) {
@@ -242,15 +247,32 @@ function checkWin(pid) {
   }
 }
 
-function applyRoundOver(winnerPid, rn) {
+function applyRoundOver(winnerPid, rn) {   // 整局结束
   if (roundOver) return;
   roundOver = true;
-  pendingRn = rn;
+  pendingRn = rn; keepKills = false;
   roundEndsAt = performance.now() + cfg.ROUND_OVER_MS;
-  roundWinner = nameColorOf(winnerPid);
+  const w = nameColorOf(winnerPid);
+  banner = { title: w.name + ' 赢下整局!', color: w.color, next: cfg.MAPS[cfg.mapIndexFor(ROOM + rn)].name };
   bullets.clear(); boxes.clear(); particles.length = 0;
   sfx.win();
   setTimeout(startNewRound, cfg.ROUND_OVER_MS);
+}
+
+function applySubRound(survivorPid) {      // 小回合结束(剩一人/同归于尽)
+  if (roundOver) return;
+  roundOver = true;
+  pendingRn = roundNum; keepKills = true;  // 同一张图、击杀保留
+  roundEndsAt = performance.now() + cfg.SUBROUND_MS;
+  if (survivorPid) {
+    const w = nameColorOf(survivorPid);
+    banner = { title: w.name + ' 存活到最后!', color: w.color, next: null };
+  } else {
+    banner = { title: '同归于尽!', color: '#E8E6DD', next: null };
+  }
+  bullets.clear(); boxes.clear();
+  sfx.pickup(1);
+  setTimeout(startNewRound, cfg.SUBROUND_MS);
 }
 
 function startNewRound() {
@@ -258,7 +280,7 @@ function startNewRound() {
   MAP = cfg.MAPS[cfg.mapIndexFor(ROOM + roundNum)];
   const el = document.getElementById('mapName');
   if (el) el.textContent = MAP.name;
-  kills.clear();
+  if (!keepKills) { kills.clear(); }
   bullets.clear(); boxes.clear();
   // 自己满状态重生
   const sp = MAP.spawns[Math.floor(Math.random() * MAP.spawns.length)];
@@ -266,12 +288,26 @@ function startNewRound() {
   me.hp = cfg.MAX_HP; me.dead = false;
   me.shield = false; me.speedUntil = 0; me.tripleUntil = 0;
   me.invulnUntil = performance.now() + cfg.INVULN_MS;
+  // 乐观重置远程血量,等他们的 st 快照来覆盖;配合宽限期防误触发
+  for (const r of remotes.values()) r.hp = cfg.MAX_HP;
+  subGraceUntil = performance.now() + 2000;
   roundOver = false;
-  if (isHost) { lastBoxSpawn = performance.now(); syncBoxes(); }
+  if (isHost) {
+    lastBoxSpawn = performance.now(); syncBoxes();
+    // 补判:小回合结算期间到账的击杀可能已达标(checkWin 当时被结算状态挡住)
+    for (const [pid, k] of kills)
+      if (k >= cfg.KILL_TARGET) {
+        const rn = roundNum + 1;
+        net.send('rw', { winner: pid, rn });
+        applyRoundOver(pid, rn);
+        return;
+      }
+  }
   refreshRoster();
 }
 
 net.on('rw', (h) => applyRoundOver(h.winner, h.rn));
+net.on('nr', (h) => applySubRound(h.survivor));
 
 // ---------- 房主:刷箱与同步 ----------
 function syncBoxes() {
@@ -318,9 +354,10 @@ function applyPickup(k) {
 let lastFire = -1e9;
 let bulletSeq = 0;
 
-function fire() {
+function fire(at) {
   const now = performance.now();
   if (me.dead || roundOver) return;
+  if (at) me.aimA = Math.atan2(at[1] - me.y, at[0] - me.x);   // 点哪打哪
   if (now - lastFire < cfg.FIRE_CD) return;
   lastFire = now;
   me.invulnUntil = 0;   // 开炮立刻解除重生无敌,防止无敌状态白嫖输出
@@ -362,35 +399,18 @@ function takeHit(b, bid) {
   me.hp -= 1;
   const dead = me.hp <= 0;
   if (dead) {
-    me.dead = true;
-    me.respawnAt = performance.now() + cfg.RESPAWN_MS;
+    me.dead = true;   // 不再个人复活:等场上剩一人,小回合结算后所有人一起重生
     me.shield = false; me.speedUntil = 0; me.tripleUntil = 0;   // 死亡掉光道具
     bigBoom(me.x, me.y, me.color);
     sfx.explode();
     kills.set(b.pid, (kills.get(b.pid) || 0) + 1);   // broadcast self:false,自己这边手动记
     refreshRoster();
-    setTimeout(respawn, cfg.RESPAWN_MS);
   } else {
     sparkHit(me.x, me.y, me.color);
     sfx.hit();
   }
   net.send('ht', { bid, victim: net.myId, by: b.pid, hp: Math.max(0, me.hp), dead });
   if (dead) checkWin(b.pid);
-}
-
-function respawn() {
-  if (!me.dead || roundOver) return;   // 新一局已重置 / 结算中,这个旧定时器作废
-  // 选离所有敌人最远的出生点,避免落地秒杀
-  let best = MAP.spawns[0], bestD = -1;
-  for (const sp of MAP.spawns) {
-    let d = Infinity;
-    for (const r of remotes.values())
-      if ((r.hp ?? 1) > 0) d = Math.min(d, Math.hypot(sp[0] - r.x, sp[1] - r.y));
-    if (d > bestD) { bestD = d; best = sp; }
-  }
-  [me.x, me.y] = safePoint(best[0], best[1]);
-  me.hp = cfg.MAX_HP; me.dead = false;
-  me.invulnUntil = performance.now() + cfg.INVULN_MS;
 }
 
 // ---------- 状态广播(限频是网络层成本的关键) ----------
@@ -441,12 +461,13 @@ function loop(ts) {
       while (da < -Math.PI) da += Math.PI * 2;
       me.bodyA += da * Math.min(1, dt * 9);
     }
-    // 瞄准:射击摇杆推着时接管炮塔方向并自动连射(fire 自带冷却);否则跟鼠标/点击
+    // 瞄准:射击摇杆推着时接管炮塔方向并自动连射(fire 自带冷却)
+    // 手机上松开摇杆保持最后的方向;桌面才让炮塔持续跟随鼠标
     const av = aimVector();
     if (av) {
       me.aimA = Math.atan2(av[1], av[0]);
       fire();
-    } else {
+    } else if (!IS_TOUCH) {
       me.aimA = Math.atan2(mouse.y - me.y, mouse.x - me.x);
     }
 
@@ -465,7 +486,20 @@ function loop(ts) {
 
   // 2. 广播自己的状态;房主额外负责刷箱与同步(结算中暂停刷箱)
   broadcastState();
-  if (isHost && !roundOver) hostBoxTick(now);
+  if (isHost && !roundOver) {
+    hostBoxTick(now);
+    // 小回合判定:房间≥2人 且 场上活人≤1(开局有 2 秒宽限期防旧数据误判)
+    if (now > subGraceUntil && rosterPlayers.length >= 2) {
+      let alive = me.dead ? 0 : 1, survivor = me.dead ? null : net.myId;
+      for (const [id, r] of remotes)
+        if ((r.hp ?? cfg.MAX_HP) > 0) { alive++; survivor = alive === 1 ? id : survivor; }
+      if (alive <= 1) {
+        const sv = alive === 1 ? survivor : null;
+        net.send('nr', { survivor: sv });
+        applySubRound(sv);
+      }
+    }
+  }
 
   // 3. 炮弹模拟:飞行、撞墙、超时、是否打中"我"
   for (const [bid, b] of bullets) {
@@ -516,10 +550,9 @@ function loop(ts) {
   if (now < me.tripleUntil) fxLines.push({ text: `三连发 ${((me.tripleUntil - now) / 1000).toFixed(1)}s`, color: '#D9A23E' });
   drawEffectHud(cx, fxLines);
   if (roundOver) {
-    const next = cfg.MAPS[cfg.mapIndexFor(ROOM + pendingRn)].name;
-    drawRoundBanner(cx, roundWinner.name, roundWinner.color, roundEndsAt - now, next);
+    drawRoundBanner(cx, banner.title, banner.color, roundEndsAt - now, banner.next);
   } else if (me.dead) {
-    drawRespawnHint(cx, me.respawnAt - now);
+    drawRespawnHint(cx);
   }
   if (!focused) drawFocusHint(cx);
 

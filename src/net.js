@@ -29,8 +29,9 @@ export async function join(roomId, name) {
 
   // 把所有 broadcast 事件路由到 handlers
   // 'st' 状态同步 | 'fi' 开炮 | 'ht' 命中(受害者权威)
-  // 'bx' 房主刷箱 | 'bxs' 房主全量同步箱子 | 'pk' 拾取认领 | 'rw' 回合结束(房主权威)
-  for (const ev of ['st', 'fi', 'ht', 'bx', 'bxs', 'pk', 'rw']) {
+  // 'bx' 房主刷箱 | 'bxs' 房主全量同步箱子 | 'pk' 拾取认领
+  // 'rw' 整局结束 | 'nr' 小回合结束(场上剩一人;均为房主权威)
+  for (const ev of ['st', 'fi', 'ht', 'bx', 'bxs', 'pk', 'rw', 'nr']) {
     channel.on('broadcast', { event: ev }, ({ payload }) => {
       if (handlers[ev]) handlers[ev](payload);
     });
