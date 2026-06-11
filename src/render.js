@@ -12,21 +12,75 @@ function shade(hex, f) {
   return `rgb(${r},${g},${b})`;
 }
 
-export function drawField(cx, walls) {
-  cx.fillStyle = '#2E332B';
-  cx.fillRect(0, 0, W, H);
-  cx.strokeStyle = '#3A4036'; cx.lineWidth = 1;
-  for (let x = 48; x < W; x += 48) { cx.beginPath(); cx.moveTo(x, 0); cx.lineTo(x, H); cx.stroke(); }
-  for (let y = 48; y < H; y += 48) { cx.beginPath(); cx.moveTo(0, y); cx.lineTo(W, y); cx.stroke(); }
-  cx.strokeStyle = '#6B7159'; cx.lineWidth = 3;
-  cx.strokeRect(1.5, 1.5, W - 3, H - 3);
-  cx.lineWidth = 1;
-  for (const w of walls) {
-    cx.fillStyle = '#565D49';
-    cx.beginPath(); cx.roundRect(w.x, w.y, w.w, w.h, 6); cx.fill();
-    cx.fillStyle = '#6B7159';
-    cx.beginPath(); cx.roundRect(w.x, w.y, w.w, 9, 6); cx.fill();
+// ---------- 战场(静态部分用离屏缓存:每张地图只画一次,既好看又省性能) ----------
+let fieldCache = null, fieldCacheKey = null;
+
+// 确定性伪随机(同一张图每次生成同样的斑点,联机双方画面一致)
+function mulberry32(seed) {
+  return () => {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function paintField(g, walls) {
+  // 底色:中心亮、四角暗的径向渐变,画面立刻有层次
+  const grad = g.createRadialGradient(W / 2, H / 2, 80, W / 2, H / 2, W * 0.62);
+  grad.addColorStop(0, '#343A2F');
+  grad.addColorStop(1, '#262B22');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, H);
+
+  // 细网格
+  g.strokeStyle = 'rgba(255,255,255,0.035)'; g.lineWidth = 1;
+  for (let x = 48; x < W; x += 48) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+  for (let y = 48; y < H; y += 48) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+
+  // 植被斑点与暗色洼地(种子来自墙体布局,每张图独一无二且双方一致)
+  const rnd = mulberry32(walls.length * 7919 + (walls[0]?.x || 1) * 31);
+  for (let i = 0; i < 26; i++) {   // 洼地
+    const x = rnd() * W, y = rnd() * H, r = 18 + rnd() * 42;
+    g.fillStyle = 'rgba(0,0,0,0.05)';
+    g.beginPath(); g.ellipse(x, y, r, r * 0.65, rnd() * 3, 0, 7); g.fill();
   }
+  for (let i = 0; i < 130; i++) {  // 草点
+    const x = rnd() * W, y = rnd() * H;
+    g.fillStyle = rnd() > 0.5 ? 'rgba(127,212,181,0.10)' : 'rgba(184,179,62,0.08)';
+    g.beginPath(); g.arc(x, y, 1.2 + rnd() * 1.8, 0, 7); g.fill();
+  }
+
+  // 边框:双层描边
+  g.strokeStyle = 'rgba(127,212,181,0.25)'; g.lineWidth = 3;
+  g.strokeRect(1.5, 1.5, W - 3, H - 3);
+  g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 1;
+  g.strokeRect(4.5, 4.5, W - 9, H - 9);
+
+  // 墙体:投影 + 主体 + 顶部高光
+  for (const w of walls) {
+    g.fillStyle = 'rgba(0,0,0,0.28)';   // 投影
+    g.beginPath(); g.roundRect(w.x + 4, w.y + 5, w.w, w.h, 7); g.fill();
+    g.fillStyle = '#5A614C';
+    g.beginPath(); g.roundRect(w.x, w.y, w.w, w.h, 7); g.fill();
+    g.fillStyle = '#707861';            // 顶面高光
+    g.beginPath(); g.roundRect(w.x, w.y, w.w, Math.min(9, w.h), 7); g.fill();
+    g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 1;
+    g.beginPath(); g.roundRect(w.x + 0.5, w.y + 0.5, w.w - 1, w.h - 1, 7); g.stroke();
+  }
+}
+
+export function drawField(cx, walls) {
+  if (fieldCacheKey !== walls) {
+    try {
+      const oc = document.createElement('canvas');
+      oc.width = W; oc.height = H;
+      paintField(oc.getContext('2d'), walls);
+      fieldCache = oc; fieldCacheKey = walls;
+    } catch { fieldCache = null; fieldCacheKey = null; }
+  }
+  if (fieldCache) cx.drawImage(fieldCache, 0, 0);
+  else paintField(cx, walls);   // 测试环境等无法建离屏画布时直接画
 }
 
 // 道具箱:木箱 + 问号(种类保密,捡了才知道)

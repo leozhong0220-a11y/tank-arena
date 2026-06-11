@@ -26,7 +26,7 @@ import {
 const cv = document.getElementById('cv');
 const cx = cv.getContext('2d');
 
-console.log('%c[坦克对决] M4.3 — 宽屏地图与双摇杆', 'color:#7FD4B5;font-weight:bold');
+console.log('%c[坦克对决] M4.4 — 开阔地图与视觉升级', 'color:#7FD4B5;font-weight:bold');
 
 // ---------- 回合状态 ----------
 let ROOM = '';            // 房间码(算每一局的地图用)
@@ -543,17 +543,26 @@ function updateLayout() {
   const portrait = window.innerHeight > window.innerWidth;
   game.classList.toggle('rot', portrait);
   setRotated(portrait);
-  // 可用空间:旋转模式下宽高互换
+  // 可用空间:旋转模式下宽高互换;0.94 = 四周留一圈呼吸空隙
   const aw = portrait ? window.innerHeight : window.innerWidth;
   const ah = portrait ? window.innerWidth : window.innerHeight;
-  const s = Math.min(aw / cfg.W, ah / cfg.H);
+  const s = Math.min(aw / cfg.W, ah / cfg.H) * 0.94;
   cv.style.width = Math.floor(cfg.W * s) + 'px';
   cv.style.height = Math.floor(cfg.H * s) + 'px';
 }
 
 function enableMobileLayout() {
   document.body.classList.add('touchmode', 'ingame');
-  document.getElementById('game').classList.add('mfs');
+  const game = document.getElementById('game');
+  game.classList.add('mfs');
+  // 根治 iOS 长按/拖动弹出 Search/Translate:拦截原生 touch 默认行为
+  // (pointer 事件先于 touch 派发,不受影响;按钮放行保证 click 可用)
+  for (const ev of ['touchstart', 'touchmove', 'touchend']) {
+    game.addEventListener(ev, (e) => {
+      if (e.target && e.target.tagName === 'BUTTON') return;
+      e.preventDefault();
+    }, { passive: false });
+  }
   updateLayout();
   window.addEventListener('resize', updateLayout);
   // 能锁横屏就锁(Android Chrome 全屏下支持);锁不了也无所谓,旋转模式兜底
