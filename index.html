@@ -46,9 +46,9 @@ canvas{width:100%;display:block;border-radius:12px;touch-action:none;cursor:cros
 #game.mfs #stick{display:block}
 #btnFireM{display:none;position:absolute;right:28px;bottom:36px;width:88px;height:88px;border-radius:50%;background:rgba(122,58,51,0.75);border:2px solid #B0584E;font-size:17px;z-index:12;touch-action:none}
 #game.mfs #btnFireM{display:block}
-#rotateHint{display:none;position:fixed;inset:0;z-index:30;background:rgba(15,18,13,0.94);color:#E8E6DD;align-items:center;justify-content:center;font-size:19px;text-align:center;line-height:1.8}
+/* 竖屏强制横屏:把整个游戏容器旋转 90°,尺寸宽高互换 */
+#game.mfs.rot{inset:auto;left:50%;top:50%;width:100vh;height:100vw;transform:translate(-50%,-50%) rotate(90deg)}
 body.touchmode.ingame{padding:0}
-@media (orientation:portrait){ body.touchmode.ingame #rotateHint{display:flex} }
 </style>
 </head>
 <body>
@@ -91,8 +91,6 @@ body.touchmode.ingame{padding:0}
   <div id="stick"><div id="knob"></div></div>
   <button id="btnFireM">开炮</button>
 </div>
-
-<div id="rotateHint">请把手机横过来 🔄<br><span style="font-size:14px;color:#9BA194">横屏视野更大,操作更顺手</span></div>
 
 <script type="module" src="src/main.js"></script>
 </body>

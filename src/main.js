@@ -16,7 +16,7 @@ import * as cfg from './config.js';
 import * as net from './net.js';
 import * as sfx from './sfx.js';
 import { RemoteTank } from './interp.js';
-import { initInput, moveVector, mouse, focused, onFire } from './input.js';
+import { initInput, moveVector, mouse, focused, onFire, setRotated } from './input.js';
 import {
   drawField, drawTank, drawBullet, drawParticles,
   drawBox, drawFloats, drawEffectHud, drawRoundBanner,
@@ -26,7 +26,7 @@ import {
 const cv = document.getElementById('cv');
 const cx = cv.getContext('2d');
 
-console.log('%c[坦克对决] M4.1 — 手机摇杆与全屏', 'color:#7FD4B5;font-weight:bold');
+console.log('%c[坦克对决] M4.2 — 强制横屏', 'color:#7FD4B5;font-weight:bold');
 
 // ---------- 回合状态 ----------
 let ROOM = '';            // 房间码(算每一局的地图用)
@@ -527,12 +527,19 @@ function randomCode() {
   return Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join('');
 }
 
-// ---------- 手机全屏适配 ----------
+// ---------- 手机全屏适配(竖屏时整体旋转 90° 强制横屏) ----------
 const IS_TOUCH = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
 
-function fitCanvas() {
-  // 保持 624:528 比例,在屏幕里放到最大
-  const s = Math.min(window.innerWidth / cfg.W, window.innerHeight / cfg.H);
+function updateLayout() {
+  const game = document.getElementById('game');
+  if (!game.classList.contains('mfs')) return;
+  const portrait = window.innerHeight > window.innerWidth;
+  game.classList.toggle('rot', portrait);
+  setRotated(portrait);
+  // 可用空间:旋转模式下宽高互换
+  const aw = portrait ? window.innerHeight : window.innerWidth;
+  const ah = portrait ? window.innerWidth : window.innerHeight;
+  const s = Math.min(aw / cfg.W, ah / cfg.H);
   cv.style.width = Math.floor(cfg.W * s) + 'px';
   cv.style.height = Math.floor(cfg.H * s) + 'px';
 }
@@ -540,11 +547,11 @@ function fitCanvas() {
 function enableMobileLayout() {
   document.body.classList.add('touchmode', 'ingame');
   document.getElementById('game').classList.add('mfs');
-  fitCanvas();
-  window.addEventListener('resize', fitCanvas);
-  // 尽量全屏 + 锁横屏(Android Chrome 支持;iOS Safari 不支持锁定,靠横屏提示兜底)
+  updateLayout();
+  window.addEventListener('resize', updateLayout);
+  // 能锁横屏就锁(Android Chrome 全屏下支持);锁不了也无所谓,旋转模式兜底
   try { document.documentElement.requestFullscreen?.().catch(() => {}); } catch {}
-  try { screen.orientation?.lock?.('landscape').catch(() => {}); } catch {}
+  try { screen.orientation?.lock?.('landscape').then(updateLayout).catch(() => {}); } catch {}
 }
 
 async function enterRoom(code, name) {

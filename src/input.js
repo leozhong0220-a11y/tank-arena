@@ -30,9 +30,21 @@ export function moveVector() {
   return m ? [x / m, y / m] : [0, 0];
 }
 
-// 把屏幕坐标换算成画布内坐标(画布被 CSS 缩放过)
+// 强制横屏旋转标志:画面转了 90° 但触摸坐标不会跟着转,
+// 所以瞄准和摇杆都要做反向旋转换算(由 main 的布局逻辑设置)
+let rotated = false;
+export function setRotated(v) { rotated = v; }
+
+// 把屏幕坐标换算成画布内坐标(画布被 CSS 缩放过;旋转模式下轴互换)
 function canvasPos(cv, ev) {
   const r = cv.getBoundingClientRect();
+  if (rotated) {
+    // 容器顺时针转了 90°:画布 x 轴 = 屏幕向下,画布 y 轴 = 屏幕向左
+    return [
+      (ev.clientY - r.top)  * cv.width  / r.height,
+      (r.right - ev.clientX) * cv.height / r.width,
+    ];
+  }
   return [
     (ev.clientX - r.left) * cv.width  / r.width,
     (ev.clientY - r.top)  * cv.height / r.height,
@@ -93,7 +105,10 @@ export function initInput(cv) {
       knob.style.transform = `translate(calc(-50% + ${joy.x * R}px), calc(-50% + ${joy.y * R}px))`;
     const track = (e) => {
       if (!joy.active || e.pointerId !== joy.id) return;
-      const dx = (e.clientX - joy.cx) / R, dy = (e.clientY - joy.cy) / R;
+      // 屏幕方向 → 游戏方向(旋转模式下手指向下 = 游戏向右)
+      const sx = (e.clientX - joy.cx) / R, sy = (e.clientY - joy.cy) / R;
+      const dx = rotated ? sy : sx;
+      const dy = rotated ? -sx : sy;
       const m = Math.hypot(dx, dy);
       const k = Math.min(1, m) / (m || 1);
       joy.x = dx * k; joy.y = dy * k;
