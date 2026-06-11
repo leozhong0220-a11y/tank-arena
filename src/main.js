@@ -26,7 +26,7 @@ import {
 const cv = document.getElementById('cv');
 const cx = cv.getContext('2d');
 
-console.log('%c[坦克对决] M4 — 音效 + 先到 ' + cfg.KILL_TARGET + ' 杀获胜', 'color:#7FD4B5;font-weight:bold');
+console.log('%c[坦克对决] M4.1 — 手机摇杆与全屏', 'color:#7FD4B5;font-weight:bold');
 
 // ---------- 回合状态 ----------
 let ROOM = '';            // 房间码(算每一局的地图用)
@@ -527,9 +527,30 @@ function randomCode() {
   return Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join('');
 }
 
+// ---------- 手机全屏适配 ----------
+const IS_TOUCH = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+
+function fitCanvas() {
+  // 保持 624:528 比例,在屏幕里放到最大
+  const s = Math.min(window.innerWidth / cfg.W, window.innerHeight / cfg.H);
+  cv.style.width = Math.floor(cfg.W * s) + 'px';
+  cv.style.height = Math.floor(cfg.H * s) + 'px';
+}
+
+function enableMobileLayout() {
+  document.body.classList.add('touchmode', 'ingame');
+  document.getElementById('game').classList.add('mfs');
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+  // 尽量全屏 + 锁横屏(Android Chrome 支持;iOS Safari 不支持锁定,靠横屏提示兜底)
+  try { document.documentElement.requestFullscreen?.().catch(() => {}); } catch {}
+  try { screen.orientation?.lock?.('landscape').catch(() => {}); } catch {}
+}
+
 async function enterRoom(code, name) {
   $('lobbyError').textContent = '';
   $('btnCreate').disabled = $('btnJoin').disabled = true;
+  if (IS_TOUCH) enableMobileLayout();   // 在点击手势内尽早请求全屏,成功率最高
   try {
     await net.join(code, name);
     sfx.unlock();   // 浏览器要求音频由用户手势触发,进房点击正好是
@@ -549,6 +570,11 @@ async function enterRoom(code, name) {
   } catch (err) {
     $('lobbyError').textContent = err.message;
     $('btnCreate').disabled = $('btnJoin').disabled = false;
+    if (IS_TOUCH) {   // 进房失败:撤掉全屏布局回大厅
+      document.body.classList.remove('ingame');
+      document.getElementById('game').classList.remove('mfs');
+      try { document.exitFullscreen?.().catch(() => {}); } catch {}
+    }
   }
 }
 
